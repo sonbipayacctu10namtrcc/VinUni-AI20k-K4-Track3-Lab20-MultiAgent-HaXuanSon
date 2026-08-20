@@ -22,7 +22,8 @@ File gợi ý:
 - `src/multi_agent_research_lab/cli.py`
 - `src/multi_agent_research_lab/services/llm_client.py`
 
-TODO(student): thay baseline placeholder bằng một call LLM thật.
+Done: `cli.py`'s `baseline` command và `services/llm_client.py` gọi OpenAI thật (xem
+`docs/design_template.md` và `reports/benchmark_report.md` cho số liệu latency/cost).
 
 ## Milestone 2: Supervisor
 
@@ -31,15 +32,18 @@ File gợi ý:
 - `src/multi_agent_research_lab/agents/supervisor.py`
 - `src/multi_agent_research_lab/graph/workflow.py`
 
-TODO(student): implement routing policy.
+Done: xem "Routing policy" trong `docs/design_template.md` cho graph đầy đủ.
 
-Gợi ý câu hỏi thiết kế:
+Gợi ý câu hỏi thiết kế — trả lời:
 
-- Khi nào gọi Researcher?
-- Khi nào gọi Analyst?
-- Khi nào gọi Writer?
-- Khi nào stop?
-- Nếu agent fail thì retry hay fallback?
+- Khi nào gọi Researcher? Khi `sources` hoặc `research_notes` còn trống.
+- Khi nào gọi Analyst? Khi `research_notes` đã có nhưng `analysis_notes` còn trống.
+- Khi nào gọi Writer? Khi `analysis_notes` đã có nhưng `final_answer` còn trống.
+- Khi nào stop? Sau khi Critic chạy xong (`critic_notes` không còn `None`), hoặc khi
+  `iteration >= max_iterations` (ép dừng, ghi lỗi nếu chưa có `final_answer`).
+- Nếu agent fail thì retry hay fallback? Retry cùng agent đó ở lượt supervisor kế tiếp
+  (vì field nó phụ trách vẫn trống) — không có agent thay thế; nếu vẫn fail tới khi hết
+  `max_iterations` thì dừng với `state.errors` ghi rõ lý do thay vì lặp vô hạn.
 
 ## Milestone 3: Worker agents
 
@@ -49,7 +53,8 @@ File gợi ý:
 - `src/multi_agent_research_lab/agents/analyst.py`
 - `src/multi_agent_research_lab/agents/writer.py`
 
-TODO(student): implement từng worker.
+Done: xem bảng "Agent roles" trong `docs/design_template.md`. Ngoài 3 worker trên, đã
+thêm `agents/critic.py` (bonus, regex-only citation check) làm bước cuối trước `done`.
 
 ## Milestone 4: Trace và benchmark
 
@@ -113,5 +118,18 @@ Cách khắc phục (chọn 1 trong 3):
 
 Mỗi nhóm trả lời 2 câu:
 
-1. Case nào nên dùng multi-agent? Vì sao?
-2. Case nào không nên dùng multi-agent? Vì sao?
+1. **Case nào nên dùng multi-agent? Vì sao?** Khi câu trả lời bắt buộc phải có evidence
+   kiểm chứng được (citation trỏ về nguồn thật) và task tự nhiên tách thành các bước có
+   trách nhiệm khác nhau — ví dụ research report, so sánh nhiều nguồn có khả năng mâu
+   thuẫn, hoặc bất kỳ pipeline nào cần một bước kiểm tra chất lượng độc lập trước khi trả
+   kết quả (như Critic ở đây). Trong benchmark của chúng tôi, multi-agent đạt 100%
+   citation coverage so với `n/a` (không thể) của baseline — đây chính là lý do tồn tại
+   của kiến trúc này, không phải để "câu trả lời hay hơn" một cách chung chung.
+
+2. **Case nào không nên dùng multi-agent? Vì sao?** Khi câu hỏi có thể trả lời tốt từ
+   kiến thức tham số của model, không cần trích dẫn nguồn ngoài, và latency/cost quan
+   trọng hơn khả năng kiểm chứng — ví dụ Q&A đơn giản, giải thích khái niệm phổ biến,
+   hoặc bất kỳ tình huống nào cần phản hồi real-time. Benchmark thực đo cho thấy
+   multi-agent chậm hơn baseline ~2.3x (14.76s vs 6.40s avg) và tốn nhiều lệnh gọi LLM
+   hơn (Analyst + Writer + Researcher so với 1 lệnh gọi của baseline) — cho cùng một câu
+   hỏi không cần trích dẫn, chi phí đó không đáng.
